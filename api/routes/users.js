@@ -4,7 +4,8 @@ const router = express.Router();
 const bcrypt = require("bcryptjs");
 const crypto = require("crypto");
 const database = require("../../database");
-
+// Send email utility
+const sendEmail = require("../../utilities/sendEmail");
 // Validation
 const checkRegistrationFields = require("../../validation/register");
 
@@ -44,13 +45,26 @@ router.post("/register", (req, res) => {
           tokenusedbefore: "f"
         })
         .then(user => {
-          // This is where the api returns json to the /register route
-          // Return the id, email, registered on date and token here
-          // Sending the user's token as a response here is insecure,
-          // but it is useful to check if our code is working properly
-          res.json(user[0]);
+          let to = [user[0].email]; // Email address must be an array
+
+          // When you set up your front-end you can create a working verification link here
+          let link = "https://yourWebsite/v1/users/verify/" + user[0].token;
+
+          // Subject of your email
+          let sub = "Confirm Registration";
+
+          // In this email we are sending HTML
+          let content =
+            "<body><p>Please verify your email.</p> <a href=" +
+            link +
+            ">Verify email</a></body>";
+          // Use the registrationEmail function of our send email utility
+          sendEmail.registrationEmail(to, sub, content);
+
+          res.json("Success!");
         })
         .catch(err => {
+          console.log(err);
           errors.account = "Email already registered";
           res.status(400).json(errors);
         });
