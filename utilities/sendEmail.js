@@ -8,7 +8,7 @@ aws.config.region = "us-east-1"; // Create a registerEmail function
 function registrationEmail(to, sub, content) {
   let ses = new aws.SES();
 
-  let from = "info@example.com"; // The email address added here must be verified in Amazon SES
+  let from = "user@example.com"; // The email address added here must be verified in Amazon SES
   //Amazon SES email format
   ses.sendEmail(
     {

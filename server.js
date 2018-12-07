@@ -4,6 +4,7 @@ const express = require("express");
 // This line simply puts Express in a variable called 'app'
 const app = express(); // Include body-parser
 const bodyParser = require("body-parser");
+const tokenExpiry = require("./utilities/tokenExpiry");
 
 // Include users.js file from the api directory (We will add this in the next step)
 const userRoutes = require("./api/routes/users");
