@@ -11,6 +11,10 @@ const sendEmail = require("../../utilities/sendEmail");
 const checkRegistrationFields = require("../../validation/register");
 // Resend email validaiton
 const checkResendField = require("../../validation/resend");
+// Forgot password validation
+const validateResetInput = require("../../validation/checkEmail");
+// Validate new passwords
+const validatePasswordChange = require("../../validation/newPassword");
 
 // Register route
 router.post("/register", (req, res) => {
@@ -181,6 +185,107 @@ router.post("/resend_email", (req, res) => {
       errors.db = "Bad request";
       res.status(400).json(errors);
     });
+});
+
+// Forgot password
+router.post("/forgot", function(req, res) {
+  const { errors, isValid } = validateResetInput(req.body);
+
+  if (!isValid) {
+    return res.status(400).json(errors);
+  }
+  let resetToken;
+  crypto.randomBytes(48, (err, buf) => {
+    if (err) throw err;
+    resetToken = buf.toString("hex");
+    return resetToken;
+  });
+
+  database
+    .table("users")
+    .select("*")
+    .where("email", req.body.email)
+    .then(emailData => {
+      if (emailData.length == 0) {
+        res.status(400).json("Invalid email address");
+      } else {
+        database
+          .table("users")
+          .where("email", emailData[0].email)
+          .update({
+            reset_password_token: resetToken,
+            reset_password_expires: Date.now(),
+            reset_password_token_used: false
+          })
+          .then(res => {
+            let to = [req.body.email];
+
+            let link = "https://yourWebsite/v1/users/verify/" + resetToken;
+
+            let sub = "Reset Password";
+
+            let content =
+              "<body><p>Please reset your password.</p> <a href=" +
+              link +
+              ">Reset Password</a></body>";
+            //Passing the details of the email to a function allows us to generalize the email sending function
+            sendEmail.Email(to, sub, content);
+
+            res.json("Please check your email for the reset password link");
+          })
+          .catch(err => {
+            console.log(err);
+            res.json("Bad Request");
+          });
+      }
+    })
+    .catch(err => {
+      res.json("Bad Request");
+    });
+});
+
+// Reset password
+router.post("/reset_password/:token", function(req, res) {
+  const { token } = req.params;
+  database
+    .select(["id", "email"])
+    .from("users")
+    .where({ reset_password_token: token, reset_password_token_used: false })
+    .then(data => {
+      if (data.length > 0) {
+        const { errors, isValid } = validatePasswordChange(req.body);
+
+        if (!isValid) {
+          return res.status(400).json(errors);
+        }
+
+        bcrypt.genSalt(12, (err, salt) => {
+          if (err) throw err;
+          bcrypt.hash(req.body.password, salt, (err, hash) => {
+            if (err) throw err;
+            database("users")
+              .returning("email")
+              .where({ id: data[0].id, email: data[0].email })
+              .update({ password: hash, reset_password_token_used: true })
+              .then(user => {
+                const subject = "Password change for your account.";
+                const txt = `The password for your account registered under ${
+                  user[0]
+                } has been successfully changed.`;
+                res.json("Password successfully changed for " + user[0] + "!");
+
+                sendEmail.Email(to, subject, txt);
+              })
+              .catch(err => {
+                res.status(400).json(errors);
+              });
+          });
+        });
+      } else {
+        res.status(400).json("Password reset error!");
+      }
+    })
+    .catch(err => res.status(400).json("Bad request"));
 });
 
 module.exports = router;

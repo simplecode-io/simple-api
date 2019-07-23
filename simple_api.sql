@@ -14,5 +14,8 @@ CREATE TABLE users (
   createdtime BIGINT,
   emailVerified BOOLEAN,
   tokenusedbefore BOOLEAN,
+  reset_password_token VARCHAR(128) UNIQUE,
+  reset_password_expires BIGINT,
+  reset_password_token_used BOOLEAN,
   PRIMARY KEY (email)
 );
