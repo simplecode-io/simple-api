@@ -1,13 +1,13 @@
 // simple-api/validation/newPassword.js
 
 const Validator = require("validator");
-const isEmpty = require("./checkForEmpty");
+const ifEmpty = require("./checkForEmpty");
 
 module.exports = function validateResetInput(data) {
   let errors = {};
 
-  data.password1 = !isEmpty(data.password1) ? data.password1 : "";
-  data.password2 = !isEmpty(data.password2) ? data.password2 : "";
+  data.password1 = !ifEmpty(data.password1) ? data.password1 : "";
+  data.password2 = !ifEmpty(data.password2) ? data.password2 : "";
 
   if (Validator.isEmpty(data.password1)) {
     errors.password1 = "Password is required";
@@ -23,6 +23,6 @@ module.exports = function validateResetInput(data) {
   }
   return {
     errors,
-    isValid: isEmpty(errors)
+    isValid: ifEmpty(errors)
   };
 };

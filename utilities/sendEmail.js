@@ -5,7 +5,7 @@ const aws = require("aws-sdk");
 aws.config.accessKeyId;
 aws.config.secretAccessKey;
 aws.config.region = "us-east-1"; // Create a registerEmail function
-function registrationEmail(to, sub, content) {
+function Email(to, sub, content) {
   let ses = new aws.SES();
 
   let from = "user@example.com"; // The email address added here must be verified in Amazon SES
@@ -29,13 +29,12 @@ function registrationEmail(to, sub, content) {
       if (err) {
         console.log(err);
       } else {
-        console.log("Email sent:");
-        console.log(data);
+        console.log("Email sent: " + data);
       }
     }
   );
 }
 // Export the registerEmail function
 module.exports = {
-  registrationEmail
+  Email
 };

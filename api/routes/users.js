@@ -3,12 +3,17 @@
 const express = require("express");
 const router = express.Router();
 const bcrypt = require("bcryptjs");
+const jwt = require("jsonwebtoken");
 const crypto = require("crypto");
 const database = require("../../database");
 // Send email utility
 const sendEmail = require("../../utilities/sendEmail");
-// Validation
+// Registration validation
 const checkRegistrationFields = require("../../validation/register");
+// Secret key
+const key = require("../../utilities/keys");
+// Login validation
+const validateLoginInput = require("../../validation/login");
 // Resend email validaiton
 const checkResendField = require("../../validation/resend");
 // Forgot password validation
@@ -65,8 +70,8 @@ router.post("/register", (req, res) => {
             "<body><p>Please verify your email.</p> <a href=" +
             link +
             ">Verify email</a></body>";
-          // Use the registrationEmail function of our send email utility
-          sendEmail.registrationEmail(to, sub, content);
+          // Use the Email function of our send email utility
+          sendEmail.Email(to, sub, content);
 
           res.json("Success!");
         })
@@ -166,7 +171,7 @@ router.post("/resend_email", (req, res) => {
                 "<body><p>Please verify your email.</p> <a href=" +
                 link +
                 ">Verify email</a></body>";
-              sendEmail.registrationEmail(to, sub, content);
+              sendEmail.Email(to, sub, content);
 
               res.json("Email re-sent!");
             } else {
@@ -185,6 +190,42 @@ router.post("/resend_email", (req, res) => {
       errors.db = "Bad request";
       res.status(400).json(errors);
     });
+});
+
+// Login route
+router.post("/login", (req, res) => {
+  // Ensures that all entries by the user are valid
+  const { errors, isValid } = validateLoginInput(req.body);
+
+  if (!isValid) {
+    return res.status(400).json(errors);
+  } else {
+    database
+      .select("id", "email", "password")
+      .where("email", "=", req.body.email)
+      .andWhere("emailverified", true)
+      .from("users")
+      .then(data => {
+        bcrypt.compare(req.body.password, data[0].password).then(isMatch => {
+          if (isMatch) {
+            const payload = { id: data[0].id, email: data[0].email };
+            jwt.sign(
+              payload,
+              key.secretOrKey,
+              { expiresIn: 3600 },
+              (err, token) => {
+                res.status(200).json("Bearer " + token);
+              }
+            );
+          } else {
+            res.status(400).json("Bad request");
+          }
+        });
+      })
+      .catch(err => {
+        res.status(400).json("Bad request");
+      });
+  }
 });
 
 // Forgot password
@@ -217,7 +258,7 @@ router.post("/forgot", function(req, res) {
             reset_password_expires: Date.now(),
             reset_password_token_used: false
           })
-          .then(res => {
+          .then(done => {
             let to = [req.body.email];
 
             let link = "https://yourWebsite/v1/users/verify/" + resetToken;
@@ -231,16 +272,19 @@ router.post("/forgot", function(req, res) {
             //Passing the details of the email to a function allows us to generalize the email sending function
             sendEmail.Email(to, sub, content);
 
-            res.json("Please check your email for the reset password link");
+            res
+              .status(200)
+              .json("Please check your email for the reset password link");
           })
           .catch(err => {
             console.log(err);
-            res.json("Bad Request");
+            res.status(400).json("Bad Request");
           });
       }
     })
     .catch(err => {
-      res.json("Bad Request");
+      console.log(err);
+      res.status(400).json("Bad Request");
     });
 });
 
@@ -261,7 +305,7 @@ router.post("/reset_password/:token", function(req, res) {
 
         bcrypt.genSalt(12, (err, salt) => {
           if (err) throw err;
-          bcrypt.hash(req.body.password, salt, (err, hash) => {
+          bcrypt.hash(req.body.password1, salt, (err, hash) => {
             if (err) throw err;
             database("users")
               .returning("email")
@@ -269,12 +313,12 @@ router.post("/reset_password/:token", function(req, res) {
               .update({ password: hash, reset_password_token_used: true })
               .then(user => {
                 const subject = "Password change for your account.";
-                const txt = `The password for your account registered under ${
+                const content = `The password for your account registered under ${
                   user[0]
                 } has been successfully changed.`;
                 res.json("Password successfully changed for " + user[0] + "!");
 
-                sendEmail.Email(to, subject, txt);
+                sendEmail.Email(to, subject, content);
               })
               .catch(err => {
                 res.status(400).json(errors);
