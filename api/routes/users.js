@@ -316,9 +316,8 @@ router.post("/reset_password/:token", function(req, res) {
                 const content = `The password for your account registered under ${
                   user[0]
                 } has been successfully changed.`;
-                res.json("Password successfully changed for " + user[0] + "!");
-
                 sendEmail.Email(to, subject, content);
+                res.json("Password successfully changed for " + user[0] + "!");
               })
               .catch(err => {
                 res.status(400).json(errors);
